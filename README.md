@@ -10,6 +10,9 @@ was created with cfMesh as opposed to snappyHexMesh.
 To run the simulation:
 
 cd foam/019-boundaries
+
 ./mesh
+
 cd outputs/run-*/reproduce
+
 ./wind 80 30
