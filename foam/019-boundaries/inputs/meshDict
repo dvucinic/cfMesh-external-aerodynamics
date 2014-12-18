@@ -1,0 +1,92 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                |
+| \\      /  F ield         | cfMesh: A library for mesh generation          | 
+|  \\    /   O peration     |                                                |
+|   \\  /    A nd           | Author: Franjo Juretic                         | 
+|    \\/     M anipulation  | E-mail: franjo.juretic@c-fields.com            |
+\*---------------------------------------------------------------------------*/
+
+FoamFile
+{
+    version   2.0;
+    format    ascii;
+    class     dictionary;
+    location  "system";
+    object    meshDict;
+}
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+surfaceFile "constant/triSurface/testsurface.fms";
+
+maxCellSize 1.000;
+
+//boundaryCellSize 0.010;
+
+//minCellSize 0.005;
+
+surfaceMeshRefinement
+{
+    surf
+    {
+        surfaceFile "constant/triSurface/testsurface_rollpitchyaw.stl";
+
+        cellSize 0.010;
+        refinementThickness 0.050;
+    }
+}
+
+
+//objectRefinements
+//{
+//    box1
+//    {
+//        cellSize 0.060;
+//        type box;
+//        centre  (0.5 0 0);
+//        lengthX  2;
+//        lengthY  8;
+//        lengthZ  1;
+//    }
+//    box2
+//    {
+//        cellSize 0.200;
+//        type box;
+//        centre  (0.5 0 0);
+//        lengthX  4;
+//        lengthY  10;
+//        lengthZ  2;
+//    }
+//    box3
+//    {
+//        cellSize 0.500;
+//        type box;
+//        centre  (7.5 0 0);
+//        lengthX  20;
+//        lengthY  15;
+//        lengthZ  8;
+//    }
+//}
+
+boundaryLayers
+{
+    nLayers 2;
+    thicknessRatio 1.2;
+    maxFirstLayerThickness 0.001;
+}
+
+renameBoundary
+{
+    newPatchNames
+    {
+        "zone0" { newName testsurface; type wall; }
+        "xMin" { newName inlet; type patch; }
+        "xMax" { newName outlet; type patch; }
+        "yMin" { newName frontAndBack; type patch; }
+        "yMax" { newName frontAndBack; type patch; }
+        "zMin" { newName lowerWall; type patch; }
+        "zMax" { newName upperWall; type patch; }
+    }
+}
+ 
+// EOF

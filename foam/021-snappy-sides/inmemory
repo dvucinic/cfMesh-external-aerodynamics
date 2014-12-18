@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# Run this scipt to create a ramdisk to write results to.
+sudo mount -t tmpfs -o size=8G tmpfs outputs

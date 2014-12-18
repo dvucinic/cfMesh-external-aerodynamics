@@ -1,0 +1,94 @@
+#!/bin/bash
+
+#SURFACE=HD-airframe-aileron-gap-rear-edge 
+SURFACE=littleboxoffset
+
+# CG aft of datum (for torque calculations)
+CG_INCHES=14
+
+# output into this directory
+#ODIR=run-`date "+%Y%m%d-%H%M%S"`-$SURFACE
+ODIR=run-`date "+%Y%m%d-%H%M%S"`
+
+# convert to meters and relative to input datum
+DATUM_M=-0.385
+X_ORIGIN=$(bc -l <<< "$DATUM_M+$CG_INCHES*0.0254")
+
+
+echo -n "Starting calculation on "; date
+
+# Source tutorial run functions
+. $WM_PROJECT_DIR/bin/tools/RunFunctions
+
+# create output directory structure
+mkdir -p outputs/$ODIR/constant/polyMesh
+mkdir outputs/$ODIR/constant/triSurface
+mkdir outputs/$ODIR/system
+
+# copy all inputs to be able to reproduce the calculation later
+mkdir outputs/$ODIR/reproduce
+cp -r $0 wind clean inmemory inputs 0.orig outputs/$ODIR/reproduce/
+
+# copy input files into their directories
+cp inputs/transportProperties outputs/$ODIR/constant/
+cp inputs/RASProperties       outputs/$ODIR/constant/
+cp inputs/controlDict         outputs/$ODIR/system/
+cp inputs/forces              outputs/$ODIR/system/
+cp inputs/fvSchemes           outputs/$ODIR/system/
+cp inputs/fvSolution          outputs/$ODIR/system/
+cp inputs/meshDict            outputs/$ODIR/system/
+
+# copy the surface to test 
+cp ../constant/triSurface/$SURFACE.stl outputs/$ODIR/constant/triSurface/
+
+# everything in place, commence computations
+cd outputs/$ODIR
+
+# scale the surface from millimeters to meters
+surfaceTransformPoints -scale '(0.016 0.016 0.016)' \
+  constant/triSurface/$SURFACE.stl \
+  constant/triSurface/testsurface_meters.stl > log.scale 2>&1
+
+# translate so the datum (wing root leading edge) is at (0, 0, 0)
+surfaceTransformPoints -translate "($X_ORIGIN 0 -0.060)" \
+  constant/triSurface/testsurface_meters.stl \
+  constant/triSurface/testsurface_datum.stl > log.translate 2>&1
+
+# rotate surface to the desired roll, pitch and yaw (3deg nominal incidence of the HD wing)
+surfaceTransformPoints -rollPitchYaw "(0 3 0)" \
+  constant/triSurface/testsurface_datum.stl \
+  constant/triSurface/testsurface_rollpitchyaw.stl > log.rotate 2>&1
+
+# generate bounding box
+surfaceGenerateBoundingBox \
+  constant/triSurface/testsurface_rollpitchyaw.stl \
+  constant/triSurface/testsurface.stl \
+  20 20 20 20 20 20 > log.boxed 2>&1
+
+# find out where the action is
+surfaceFeatureEdges -angle 25 \
+  constant/triSurface/testsurface.stl \
+  constant/triSurface/testsurface.fms > log.edges 2>&1
+
+# mesh the volume
+runApplication cartesianMesh 
+
+#echo "Boundary layer refinement"
+# 10-layer scheme, 1.25 growth ratio
+#refineWallLayer -overwrite testsurface 0.7759419501 > log.boundary 2>&1
+#refineWallLayer -overwrite testsurface 0.768995039 >> log.boundary 2>&1
+#refineWallLayer -overwrite testsurface 0.759681195 >> log.boundary 2>&1
+#refineWallLayer -overwrite testsurface 0.7469266776 >> log.boundary 2>&1
+#refineWallLayer -overwrite testsurface 0.7289444011 >> log.boundary 2>&1
+#refineWallLayer -overwrite testsurface 0.7025226083 >> log.boundary 2>&1
+#refineWallLayer -overwrite testsurface 0.6612466125 >> log.boundary 2>&1
+#refineWallLayer -overwrite testsurface 0.5901639344 >> log.boundary 2>&1
+#refineWallLayer -overwrite testsurface 0.4444444444 >> log.boundary 2>&1
+
+# copy initial conditions
+cp -r ../../0.orig 0.orig
+
+echo -n "Ending calculation at "; date
+
+paraFoam &
+sleep 1 

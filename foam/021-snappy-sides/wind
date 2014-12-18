@@ -1,0 +1,69 @@
+#!/bin/bash
+
+if [ $# -ne 2 ] ; then
+  echo 'Usage: $0 airspeed_knots AOA_degrees'
+  exit
+fi
+
+# convert airspeed in knots to meters per second
+AIRSPEED_MpS=$(bc -l <<< "scale=6;$1/100*51.44")
+
+# rotate by AOA
+AOA=$2
+SINE=$(bc -l <<< "scale=6;s($AOA/45*a(1))")
+COSINE=$(bc -l <<< "scale=6;c($AOA/45*a(1))")
+AIRSPEED_x=$(bc -l <<< "scale=6;$AIRSPEED_MpS*$COSINE")
+AIRSPEED_y=0
+AIRSPEED_z=$(bc -l <<< "scale=6;$AIRSPEED_MpS*$SINE")
+
+
+# output into this directory
+ODIR=run-$1-$2
+
+echo "AIRSPEED_MpS=($AIRSPEED_x, $AIRSPEED_y, $AIRSPEED_z)" " AOA=$AOA"
+echo -n "Starting calculation on "; date
+
+# Source tutorial run functions
+. $WM_PROJECT_DIR/bin/tools/RunFunctions
+
+# create output directory structure
+mkdir -p outputs/$ODIR/system
+
+# copy the mesh
+cp -r ../constant outputs/$ODIR/
+
+# copy input files into their directories
+cp inputs/controlDict         outputs/$ODIR/system/
+cp inputs/fvSchemes           outputs/$ODIR/system/
+cp inputs/fvSolution          outputs/$ODIR/system/
+cp inputs/surfaceFeatureExtractDict outputs/$ODIR/system/
+cp inputs/snappyHexMeshDict   outputs/$ODIR/system/
+cat inputs/forces | \
+  sed s/AIRSPEED_MpS/$AIRSPEED_MpS/ | \
+  sed s/COSINE/\($COSINE\)/ | \
+  sed s/SINUS/\($SINE\)/  > outputs/$ODIR/system/forces
+
+# copy the surface to test 
+cp ../constant/triSurface/testsurface.stl outputs/$ODIR/constant/triSurface/
+
+# everything in place, commence computations
+cd outputs/$ODIR
+
+# copy initial conditions
+cp -r ../../0.orig 0
+cat ../../0.orig/U | \
+  sed s/AIRSPEED_x/$AIRSPEED_x/ | \
+  sed s/AIRSPEED_y/$AIRSPEED_y/ | \
+  sed s/AIRSPEED_z/$AIRSPEED_z/ > 0/U
+
+# pre-compute fields for faster convergence
+runApplication potentialFoam -noFunctionObjects -writep
+
+# run steady-state solver
+runApplication simpleFoam
+
+echo -n "Ending calculation at "; date
+
+foamLog -quiet -n log.simpleFoam
+
+#paraFoam
